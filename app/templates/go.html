@@ -8,17 +8,36 @@
 {% endblock %}
 
 {% block content %}
-    <h1 class="text-center">Result</h1>
-        <ul class="list-group">
-            {% for category, classification in classification_result.items() %}
-                {% if classification == 1 %}
-                    <li class="list-group-item list-group-item-success text-center">{{category.replace('_', ' ').title()}}</li>
-                {% else %}
-                    <li class="list-group-item list-group-item-dark text-center">{{category.replace('_', ' ').title()}}</li>
-                {% endif %}
-            {% endfor %}
-
+    <h1 class="text-center">Classification Results</h1>
+    <hr />
+    <div class="row">
+        <div class="col-md-4">
+            <h4>Categories Matched:</h4>
+            <ul class="list-group">
+                {% for category, classification in classification_result.items() %}
+                    {% if classification == 1 %}
+                        <li class="list-group-item list-group-item-success">
+                            <strong>{{category.replace('_', ' ').title()}}</strong>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="col-md-8">
+            <h4>All Categories:</h4>
+            <ul class="list-group">
+                {% for category, classification in classification_result.items() %}
+                    {% if classification == 1 %}
+                        <li class="list-group-item list-group-item-success">
+                            <span class="badge">✓</span> {{category.replace('_', ' ').title()}}
+                        </li>
+                    {% else %}
+                        <li class="list-group-item">
+                            {{category.replace('_', ' ').title()}}
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
         </div>
     </div>
-
 {% endblock %}

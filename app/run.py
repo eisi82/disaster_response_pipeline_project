@@ -1,20 +1,25 @@
 import json
 import plotly
 import pandas as pd
+import numpy as np
 
+import re
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+import nltk
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar
-from sklearn.externals import joblib
+from plotly.graph_objs import Bar, Pie
+from sklearn import joblib
 from sqlalchemy import create_engine
 
 
 app = Flask(__name__)
 
 def tokenize(text):
+    """Tokenize and lemmatize text."""
+    text = re.sub(r"[^a-zA-Z0-9]", " ", text)
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
@@ -26,11 +31,14 @@ def tokenize(text):
     return clean_tokens
 
 # load data
-engine = create_engine('sqlite:///../data/YourDatabaseName.db')
-df = pd.read_sql_table('YourTableName', engine)
+engine = create_engine('sqlite:///../data/DisasterResponse.db')
+df = pd.read_sql_table('disaster_messages', engine)
 
 # load model
-model = joblib.load("../models/your_model_name.pkl")
+model = joblib.load("../models/classifier.pkl")
+
+# Get category names (all columns except id, message, original, genre)
+category_names = [col for col in df.columns if col not in ['id', 'message', 'original', 'genre']]
 
 
 # index webpage displays cool visuals and receives user input text for model
@@ -38,22 +46,31 @@ model = joblib.load("../models/your_model_name.pkl")
 @app.route('/index')
 def index():
     
-    # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
+    # Extract data for visuals
+    
+    # 1. Genre distribution
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
     
-    # create visuals
-    # TODO: Below is an example - modify to create your own visuals
+    # 2. Message category distribution (top 15 categories)
+    category_counts = df[category_names].sum().sort_values(ascending=False).head(15)
+    category_labels = list(category_counts.index)
+    category_values = list(category_counts.values)
+    
+    # 3. Overall statistics - related category
+    related_distribution = df['related'].value_counts().sort_index()
+    
+    # Create visuals
     graphs = [
+        # Graph 1: Genre distribution
         {
             'data': [
                 Bar(
                     x=genre_names,
-                    y=genre_counts
+                    y=genre_counts,
+                    marker=dict(color='rgb(55, 83, 109)')
                 )
             ],
-
             'layout': {
                 'title': 'Distribution of Message Genres',
                 'yaxis': {
@@ -62,6 +79,41 @@ def index():
                 'xaxis': {
                     'title': "Genre"
                 }
+            }
+        },
+        
+        # Graph 2: Top 15 message categories
+        {
+            'data': [
+                Bar(
+                    x=category_labels,
+                    y=category_values,
+                    marker=dict(color='rgb(26, 118, 255)')
+                )
+            ],
+            'layout': {
+                'title': 'Top 15 Message Categories by Frequency',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Category",
+                    'tickangle': -45
+                }
+            }
+        },
+        
+        # Graph 3: Related vs Non-Related pie chart
+        {
+            'data': [
+                Pie(
+                    labels=['Related', 'Not Related'] if len(related_distribution) > 1 else ['Related'],
+                    values=list(related_distribution.values),
+                    marker=dict(colors=['rgb(255, 99, 71)', 'rgb(99, 255, 132)'])
+                )
+            ],
+            'layout': {
+                'title': 'Distribution of Related Messages'
             }
         }
     ]
@@ -82,7 +134,10 @@ def go():
 
     # use model to predict classification for query
     classification_labels = model.predict([query])[0]
-    classification_results = dict(zip(df.columns[4:], classification_labels))
+    classification_results = dict(zip(category_names, classification_labels))
+    
+    # Sort by category name for display
+    classification_results = dict(sorted(classification_results.items()))
 
     # This will render the go.html Please see that file. 
     return render_template(
