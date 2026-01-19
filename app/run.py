@@ -10,8 +10,7 @@ import nltk
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar, Pie
-from sklearn import joblib
+import joblib
 from sqlalchemy import create_engine
 
 
@@ -51,6 +50,7 @@ def index():
     # 1. Genre distribution
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
+    genre_values = list(genre_counts.values)
     
     # 2. Message category distribution (top 15 categories)
     category_counts = df[category_names].sum().sort_values(ascending=False).head(15)
@@ -60,57 +60,51 @@ def index():
     # 3. Overall statistics - related category
     related_distribution = df['related'].value_counts().sort_index()
     
-    # Create visuals
+    # Create visuals as dictionaries (not Plotly objects)
     graphs = [
         # Graph 1: Genre distribution
         {
             'data': [
-                Bar(
-                    x=genre_names,
-                    y=genre_counts,
-                    marker=dict(color='rgb(55, 83, 109)')
-                )
+                {
+                    'x': genre_names,
+                    'y': [int(v) for v in genre_values],
+                    'type': 'bar',
+                    'marker': {'color': 'rgb(55, 83, 109)'}
+                }
             ],
             'layout': {
                 'title': 'Distribution of Message Genres',
-                'yaxis': {
-                    'title': "Count"
-                },
-                'xaxis': {
-                    'title': "Genre"
-                }
+                'yaxis': {'title': "Count"},
+                'xaxis': {'title': "Genre"}
             }
         },
         
         # Graph 2: Top 15 message categories
         {
             'data': [
-                Bar(
-                    x=category_labels,
-                    y=category_values,
-                    marker=dict(color='rgb(26, 118, 255)')
-                )
+                {
+                    'x': category_labels,
+                    'y': [int(v) for v in category_values],
+                    'type': 'bar',
+                    'marker': {'color': 'rgb(26, 118, 255)'}
+                }
             ],
             'layout': {
                 'title': 'Top 15 Message Categories by Frequency',
-                'yaxis': {
-                    'title': "Count"
-                },
-                'xaxis': {
-                    'title': "Category",
-                    'tickangle': -45
-                }
+                'yaxis': {'title': "Count"},
+                'xaxis': {'title': "Category", 'tickangle': -45}
             }
         },
         
         # Graph 3: Related vs Non-Related pie chart
         {
             'data': [
-                Pie(
-                    labels=['Related', 'Not Related'] if len(related_distribution) > 1 else ['Related'],
-                    values=list(related_distribution.values),
-                    marker=dict(colors=['rgb(255, 99, 71)', 'rgb(99, 255, 132)'])
-                )
+                {
+                    'labels': ['Related', 'Not Related'] if len(related_distribution) > 1 else ['Related'],
+                    'values': [int(v) for v in related_distribution.values],
+                    'type': 'pie',
+                    'marker': {'colors': ['rgb(255, 99, 71)', 'rgb(99, 255, 132)']}
+                }
             ],
             'layout': {
                 'title': 'Distribution of Related Messages'
