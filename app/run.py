@@ -17,7 +17,18 @@ from sqlalchemy import create_engine
 app = Flask(__name__)
 
 def tokenize(text):
-    """Tokenize and lemmatize text."""
+    """
+    Normalize, tokenize, and lemmatize text using NLTK.
+    
+    Removes special characters, converts to lowercase, and lemmatizes tokens
+    to their base form for consistency in text classification.
+    
+    Parameters:
+        text (str): Raw text string to be processed
+    
+    Returns:
+        list: List of cleaned, lemmatized tokens (lowercase strings)
+    """
     text = re.sub(r"[^a-zA-Z0-9]", " ", text)
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
@@ -29,14 +40,14 @@ def tokenize(text):
 
     return clean_tokens
 
-# load data
+# Initialize database engine and load preprocessed disaster messages dataset
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('disaster_messages', engine)
 
-# load model
+# Load the trained multi-output classifier (TF-IDF + Random Forest)
 model = joblib.load("../models/classifier.pkl")
 
-# Get category names (all columns except id, message, original, genre)
+# Extract 36 category column names from dataset (exclude metadata columns)
 category_names = [col for col in df.columns if col not in ['id', 'message', 'original', 'genre']]
 
 
@@ -44,20 +55,29 @@ category_names = [col for col in df.columns if col not in ['id', 'message', 'ori
 @app.route('/')
 @app.route('/index')
 def index():
+    """
+    Render the home page with training dataset visualizations.
     
-    # Extract data for visuals
+    Loads preprocessed disaster response data from the database and creates
+    three interactive Plotly visualizations:
+    1. Genre distribution (bar chart)
+    2. Top 15 message categories by frequency (bar chart)
+    3. Related vs. non-related messages distribution (pie chart)
     
-    # 1. Genre distribution
+    Returns:
+        str: Rendered HTML template with embedded Plotly graphs
+    """
+    # Aggregate statistics from training dataset for visualization
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
     genre_values = list(genre_counts.values)
     
-    # 2. Message category distribution (top 15 categories)
+    # Count messages per category to identify most common disaster types
     category_counts = df[category_names].sum().sort_values(ascending=False).head(15)
     category_labels = list(category_counts.index)
     category_values = list(category_counts.values)
     
-    # 3. Overall statistics - related category
+    # Calculate distribution of related vs. non-related messages
     related_distribution = df['related'].value_counts().sort_index()
     
     # Create visuals as dictionaries (not Plotly objects)
@@ -114,6 +134,19 @@ def index():
     
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
+    """
+    Classify a user-submitted message across 36 disaster categories.
+    
+    Takes a message query from the user, preprocesses it using the same
+    tokenization method as training, and passes it through the trained
+    MultiOutputClassifier to predict applicable categories.
+    
+    Query Parameters:
+        query (str): User-provided disaster message to classify
+    
+    Returns:
+        str: Rendered results page with matched categories highlighted
+    """
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
     
     # render web page with plotly graphs
